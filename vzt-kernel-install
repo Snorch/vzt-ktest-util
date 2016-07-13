@@ -155,12 +155,22 @@ function grub_setup
 	return $ret
 }
 
+SUBARCH=$(uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
+				  -e s/sun4u/sparc64/ \
+				  -e s/arm.*/arm/ -e s/sa110/arm/ \
+				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
+				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
+				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
+
+let NR_PROC=$(nproc)+1
 
 ##### local boot  #####
 if [ $boot_proto == "local" ]; then
-    	make targz-pkg
+	make -j$NR_PROC targz-pkg
 	SSH root@$host "type pigz &>/dev/null" && gzip=pigz || gzip=gzip
-	cat linux-$krel.tar.gz | SSH root@$host " $gzip -d | tar mx  -C / " || exit 1
+	ARCH="" && cat scripts/package/buildtar | grep tarball=.*ARCH && ARCH="-$SUBARCH" \
+		&& echo "Fix modern kernels have $ARCH in tarname"
+	cat linux-$krel$ARCH.tar.gz | SSH root@$host " $gzip -d | tar mx  -C / " || exit 1
 	SSH root@$host "echo 'new kernel and was intalled to /boot/vmlinuz-$krel' > /dev/kmsg"
 	SSH root@$host "wall 'new kernel and was intalled to /boot/vmlinuz-$krel'"
 
